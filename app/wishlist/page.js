@@ -35,14 +35,21 @@ export default function WishlistPage() {
       try {
         setLastOrderDetails(JSON.parse(savedOrder));
       } catch (e) {
-        console.error(e);
+        console.error("Ошибка при чтении localStorage:", e);
       }
     }
   }, []);
 
-  // Периодический опрос сервера на предмет подтверждения цены из Telegram
+  // Автоматический опрос сервера раз в 3 секунды для получения цены из Telegram
   useEffect(() => {
     if (!lastOrderDetails?.orderId) return;
+
+    // Прекращаем опрос, если цена уже подтверждена
+    if (
+      lastOrderDetails.status === "confirmed" &&
+      lastOrderDetails.confirmedPrice
+    )
+      return;
 
     const interval = setInterval(async () => {
       try {
@@ -131,6 +138,9 @@ export default function WishlistPage() {
 
         clearWishlist();
         setFormData({ name: "", phone: "", region: "" });
+
+        // Переключаем пользователя на вкладку с деталями доставки
+        setActiveTab("delivery");
         setDeliverySubTab("delivery");
       } else {
         alert(`Ошибка: ${result.error || "Не удалось отправить заказ"}`);
@@ -405,7 +415,7 @@ export default function WishlistPage() {
                         </span>
                       ) : (
                         <span className="text-xs text-amber-600 font-semibold bg-amber-50 px-3 py-1 rounded-full border border-amber-200 animate-pulse">
-                          Ожидает расчета цены в Telegram ⏳
+                          Ожидает расчета цены в Telegram ⌛
                         </span>
                       )}
                     </div>
@@ -449,8 +459,8 @@ export default function WishlistPage() {
                         </p>
                         <p className="text-sm font-bold text-[#22c55e]">
                           {lastOrderDetails.confirmedPrice
-                            ? `${lastOrderDetails.confirmedPrice} руб.`
-                            : "Расчитывается..."}
+                            ? `${lastOrderDetails.confirmedPrice} сум`
+                            : "Рассчитывается..."}
                         </p>
                       </div>
                     </div>
