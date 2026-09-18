@@ -17,43 +17,49 @@ export async function POST(request) {
       );
     }
 
-    // 1. ОБРАБОТКА НАЖАТИЯ КНОПКИ "Указать цену"
+    // 1. ОБРАБОТКА НАЖАТИЯ КНОПКИ В TELEGRAM (Callback Query)
     if (body.callback_query) {
       const callback = body.callback_query;
       const data = callback.data || "";
       const fromChatId = callback.message.chat.id;
 
-      // Обязательно подтверждаем клик по кнопке
+      // Отвечаем Telegram, что кнопка нажата
       await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ callback_query_id: callback.id }),
+        body: JSON.stringify({
+          callback_query_id: callback.id,
+          text: "Введите цену в ответном сообщении",
+        }),
       });
 
       if (data.startsWith("set_price_")) {
         const orderId = data.replace("set_price_", "");
 
-        // Отправляем запрос цены и просим ответить (ForceReply)
+        // Просим ввести цену и включаем force_reply
         await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             chat_id: fromChatId,
             text: `✍️ Напишите цену для заказа #${orderId} в ответ на это сообщение:`,
-            reply_markup: { force_reply: true },
+            reply_markup: {
+              force_reply: true,
+              selective: true,
+            },
           }),
         });
       }
       return NextResponse.json({ ok: true });
     }
 
-    // 2. ОБРАБОТКА ОТВЕТА С ЦЕНОЙ
+    // 2. ОБРАБОТКА ВВОДА ЦЕНЫ (Ответ на сообщение бота)
     if (body.message && body.message.reply_to_message && body.message.text) {
       const msg = body.message;
       const fromChatId = msg.chat.id;
       const replyText = msg.reply_to_message.text || "";
 
-      // Извлекаем номер заказа из сообщения бота
+      // Извлекаем ID заказа из текста сообщения бота
       const match = replyText.match(/#ORD\d+/);
       if (match) {
         const orderId = match[0];
@@ -117,11 +123,17 @@ export async function POST(request) {
     );
 
     if (!res.ok) {
-      return NextResponse.json({ error: "TG API Error" }, { status: 500 });
+      const errText = await res.text();
+      console.error("TG API Error:", errText);
+      return NextResponse.json(
+        { error: "TG API Error", details: errText },
+        { status: 500 },
+      );
     }
 
     return NextResponse.json({ success: true, orderId });
   } catch (error) {
+    console.error("API Route error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
