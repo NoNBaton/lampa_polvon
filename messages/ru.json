@@ -1,0 +1,14 @@
+{
+  "NavBar": {
+    "downloadCatalog": "Скачать каталог",
+    "favorites": "Избранное",
+    "login": "Войти",
+    "logout": "Выйти",
+    "catalog": "Каталог",
+    "about": "О компании",
+    "portfolio": "Портфолио",
+    "whereToBuy": "Где купить?",
+    "news": "Новости",
+    "contacts": "Контакты"
+  }
+}

@@ -1,0 +1,182 @@
+.header {
+    width: 100%;
+    background-color: #ffffff;
+    border-bottom: 1px solid #e5e5e5;
+    font-family: system-ui, -apple-system, sans-serif;
+    color: #111111;
+}
+
+.topBar {
+    height: 4px;
+    background-color: #27ae60;
+    width: 100%;
+}
+
+/* Верхняя секция */
+.topRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 48px;
+    border-bottom: 1px solid #e5e5e5;
+    padding: 0 40px;
+}
+
+.topBarLeft {
+    display: flex;
+    align-items: center;
+    height: 100%;
+}
+
+.langBtn {
+    background: none;
+    border: none;
+    border-right: 1px solid #e5e5e5;
+    padding: 0 16px;
+    height: 100%;
+    font-size: 13px;
+    cursor: pointer;
+    color: #333;
+}
+
+.downloadBtn {
+    text-decoration: none;
+    color: #333;
+    font-size: 13px;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    height: 100%;
+    border-right: 1px solid #e5e5e5;
+}
+
+.searchContainer {
+    display: flex;
+    align-items: center;
+    color: #666;
+}
+
+.searchIcon {
+    cursor: pointer;
+}
+
+.topBarRight {
+    display: flex;
+    align-items: center;
+    height: 100%;
+}
+
+.iconBtn {
+    background: none;
+    border: none;
+    border-left: 1px solid #e5e5e5;
+    padding: 0 16px;
+    height: 100%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    color: #333;
+}
+
+.authBtn {
+    background: none;
+    border: none;
+    border-left: 1px solid #e5e5e5;
+    padding: 0 20px;
+    height: 100%;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #333;
+}
+
+.userProfile {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 16px;
+    border-left: 1px solid #e5e5e5;
+    height: 100%;
+}
+
+.userAvatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.userAvatarFallback {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background-color: #27ae60;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.userName {
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.logoutBtn {
+    background: none;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+/* Нижняя секция */
+.bottomRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 70px;
+    padding: 0 40px;
+}
+
+.logo {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -1px;
+}
+
+.navigation {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+}
+
+.navigation a {
+    text-decoration: none;
+    color: #222;
+    font-size: 14px;
+    font-weight: 400;
+    transition: color 0.2s;
+}
+
+.navigation a:hover {
+    color: #27ae60;
+}
+
+.phone {
+    text-decoration: none;
+    color: #111;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-left: 1px solid #e5e5e5;
+    padding-left: 24px;
+    height: 100%;
+}
