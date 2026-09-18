@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 
-// В production замените global на Redis/DB, но для теста оставляем global
-global.ordersDb = global.ordersDb || {};
-global.awaitingPrice = global.awaitingPrice || {};
-
+// Функция экранирования Markdown (чтобы не было ошибок отправки при спецсимволах)
 function escapeMarkdown(text = "") {
   return String(text).replace(/[_*`\[\]~>#+\-=|{}.!]/g, "\\$&");
 }
@@ -13,7 +10,9 @@ export async function POST(request) {
     const body = await request.json();
     const token = process.env.TELEGRAM_BOT_TOKEN;
     const chatId = process.env.TELEGRAM_CHAT_ID;
+    const siteUrl = process.env.NEXTAUTH_URL; // Убедитесь, что эта переменная задана в Netlify как https://polvonlamp.netlify.app
 
+    // Если нет токена, возвращаем ошибку, так как уведомление админу — обязательная часть
     if (!token) {
       return NextResponse.json(
         { error: "TELEGRAM_BOT_TOKEN не настроен" },
@@ -21,86 +20,10 @@ export async function POST(request) {
       );
     }
 
-    // 1. ОБРАБОТКА НАЖАТИЯ КНОПКИ В TELEGRAM (Callback Query)
-    if (body.callback_query) {
-      const callback = body.callback_query;
-      const callbackId = callback.id;
-      const data = callback.data || "";
-      const fromChatId = callback.message.chat.id;
-
-      await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          callback_query_id: callbackId,
-          text: "Введите цену в чате",
-        }),
-      });
-
-      if (data.startsWith("set_price_")) {
-        const orderId = data.replace("set_price_", "");
-        global.awaitingPrice[fromChatId] = orderId;
-
-        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            chat_id: fromChatId,
-            text: `✍️ Введите цену для заказа *#${orderId}* (ответьте на это сообщение):`,
-            parse_mode: "Markdown",
-            reply_markup: {
-              force_reply: true,
-              selective: true,
-            },
-          }),
-        });
-      }
-
-      return NextResponse.json({ ok: true });
-    }
-
-    // 2. ОБРАБОТКА ВВОДА ЦЕНЫ В TELEGRAM (текстовое сообщение от админа)
-    if (
-      body.message &&
-      body.message.text &&
-      !body.message.text.startsWith("/")
-    ) {
-      const msg = body.message;
-      const fromChatId = msg.chat.id;
-      const targetOrderId = global.awaitingPrice[fromChatId];
-
-      if (targetOrderId) {
-        const enteredPrice = msg.text.trim();
-
-        if (!global.ordersDb[targetOrderId]) {
-          global.ordersDb[targetOrderId] = { orderId: targetOrderId };
-        }
-
-        global.ordersDb[targetOrderId].price = enteredPrice;
-        global.ordersDb[targetOrderId].status = "confirmed";
-
-        delete global.awaitingPrice[fromChatId];
-
-        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            chat_id: fromChatId,
-            text: `✅ Цена для заказа *#${targetOrderId}* установлена: *${escapeMarkdown(
-              enteredPrice,
-            )}*`,
-            parse_mode: "Markdown",
-          }),
-        });
-
-        return NextResponse.json({ ok: true });
-      }
-    }
-
-    // 3. ОБРАБОТКА НОВОГО ЗАКАЗА С САЙТА (когда json приходит с полями name/phone)
+    // Обработка данных формы
     const { name, phone, region, volume, message } = body;
 
-    // Если это не системный апдейт от телеграма и нет имени/телефона — игнорируем или возвращаем ошибку
+    // Валидация: если нет имени или телефона — это не заявка
     if (!name || !phone) {
       return NextResponse.json({
         ok: true,
@@ -108,19 +31,10 @@ export async function POST(request) {
       });
     }
 
+    // Создаем ID заказа ( ORD + последние 6 цифр таймстампа)
     const orderId = "ORD" + Date.now().toString().slice(-6);
 
-    global.ordersDb[orderId] = {
-      orderId,
-      name,
-      phone,
-      region: region || "Не указан",
-      volume: volume || "Не указан",
-      message: message || "Отсутствует",
-      price: null,
-      status: "pending",
-    };
-
+    // Формируем текст сообщения с Markdown
     const text =
       `📬 *Новый заказ #${orderId}*\n\n` +
       `👤 *Имя:* ${escapeMarkdown(name)}\n` +
@@ -129,8 +43,42 @@ export async function POST(request) {
       `📦 *Состав заказа:* ${escapeMarkdown(volume || "Не указан")}\n` +
       `💬 *Сообщение:* ${escapeMarkdown(message || "Отсутствует")}`;
 
-    const targetChat = chatId || (body.message && body.message.chat.id);
+    // Определяем чат для отправки (всегда отправляем админу)
+    const targetChat = chatId;
 
+    if (!targetChat) {
+      return NextResponse.json(
+        { error: "TELEGRAM_CHAT_ID не настроен" },
+        { status: 500 },
+      );
+    }
+
+    // Формируем Inline-кнопки (без callback_data, так как вебхука нет)
+    const inline_keyboard = [];
+
+    // Кнопка 1: Открывает админ-панель на сайте для указания цены
+    if (siteUrl) {
+      inline_keyboard.push([
+        {
+          text: "💰 Указать цену на сайте",
+          url: `${siteUrl}/admin/orders/${orderId}`, // Замените на реальный URL вашей админки
+        },
+      ]);
+    }
+
+    // Кнопка 2: Открывает ЛС с менеджером в Telegram
+    // Замените YOUR_MANAGER_USERNAME на реальный юзернейм менеджера без @
+    const managerUsername = process.env.MANAGER_TELEGRAM_USERNAME;
+    if (managerUsername) {
+      inline_keyboard.push([
+        {
+          text: "👨‍💻 Написать менеджеру в ЛС",
+          url: `https://t.me/${managerUsername}`,
+        },
+      ]);
+    }
+
+    // Отправляем сообщение в Telegram напрямую
     const res = await fetch(
       `https://api.telegram.org/bot${token}/sendMessage`,
       {
@@ -140,20 +88,17 @@ export async function POST(request) {
           chat_id: targetChat,
           text: text,
           parse_mode: "Markdown",
-          reply_markup: {
-            inline_keyboard: [
-              [
-                {
-                  text: "💰 Указать цену",
-                  callback_data: `set_price_${orderId}`,
-                },
-              ],
-            ],
-          },
+          reply_markup:
+            inline_keyboard.length > 0
+              ? {
+                  inline_keyboard: inline_keyboard,
+                }
+              : undefined,
         }),
       },
     );
 
+    // Обработка ошибок Telegram API
     if (!res.ok) {
       const errData = await res.text();
       console.error("Telegram API error:", errData);
@@ -163,6 +108,7 @@ export async function POST(request) {
       );
     }
 
+    // Все прошло успешно
     return NextResponse.json({ success: true, orderId }, { status: 200 });
   } catch (error) {
     console.error("API error:", error);
@@ -170,13 +116,11 @@ export async function POST(request) {
   }
 }
 
+// GET метод больше не используется глобально для хранения заказов,
+// так как Serverless не хранит состояние.
 export async function GET(request) {
-  const { searchParams } = new URL(request.url);
-  const orderId = searchParams.get("orderId");
-
-  if (!orderId || !global.ordersDb[orderId]) {
-    return NextResponse.json({ error: "Заказ не найден" }, { status: 404 });
-  }
-
-  return NextResponse.json(global.ordersDb[orderId], { status: 200 });
+  return NextResponse.json(
+    { error: "Этот метод больше не поддерживается" },
+    { status: 405 },
+  );
 }
